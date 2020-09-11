@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Machine learning for gamma rays</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <link rel="stylesheet" href="./assets/katex.min.css">
+    <link rel="stylesheet" href="./assets/style.css">
+    <link rel="stylesheet" href="./assets/grid.css">
+    <link rel="stylesheet" href="./assets/animate.min.css">
+    <style type="text/css">
+      /* Slideshow styles */
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+class: left, middle, title-slide
+
+# Machine learning for gamma rays
+
+.right[Christoph Weniger, GRAPPA
+
+University of Amsterdam
+
+11  September 2020]
+
+.left[CTA DMEP Meeting]
+
+---
+
+# The inverse problem
+
+Given some data $x$, what does this tell me about $z$?
+
+.grid[
+.kol-2-5[
+**Bayes' theorem**
+$$
+P(z|x) = \frac{P(x|z) P(z)}{P(x)}
+$$
+]
+.kol-3-5[
+- Likelihood: $P(x|z)$
+- Prior: $P(z)$
+- Posterior: $P(z|x)$
+- Evidence: $P(x) \equiv \int dz\, P(x|z) P(z)$
+- (**Generative model**: $P(x, z) \equiv P(x|z)P(z)$)
+]
+]
+
+--
+count: false
+
+This gives the **joined posterior** for the full latent space $z\in \mathbb{R}^n$.  Almost always, we want however the **marginal posterior**, say, for $\theta\in \mathbb{R}$, where $z\equiv(\theta, \eta)$ and $\eta \in \mathbb{R}^{n-1}$ are nuisance parameters.
+
+$$
+P(\theta|x) = \int d\eta\, P(\theta, \eta|x) 
+$$
+
+Alas, this integral is usually **intractable**.
+
+---
+
+# Galtonboard
+
+.center[
+<iframe width="600" height="440" src="https://www.youtube.com/embed/Kq7e6cj2nDw?&loop=0&start=1&rel=0" frameborder="0" volume="0" allowfullscreen></iframe>
+]
+
+Here, $\eta$ corresponds to the different paths each ball can take.  The interactable integral is here a path integral.
+
+---
+
+# Gamma-ray model and inference
+
+.grid[
+.kol-3-4[
+.center[**Generative model**, $P(x, z)$]
+.center[.width-90[![](figures/fermi_diagram.png)]]
+]
+.kol-1-4[
+.center[**Inference examples**, $P(\theta|x)$]
+- 4FGL
+- CR distribution
+- Extended sources
+- Diffusion zone height
+- ...
+]]
+
+---
+
+class: center, middle
+
+.center[.huge[All analyses are defined by their __Compromises__]]
+
+
+---
+
+# Examples
+
+- 4FGL source catalog
+  - Assume independence of diffuse model
+  - Ignore source ambiguity (one or two sources?)
+  - Ignore uncertain sources
+
+- Spectrum of CRs
+  - Averaged over small regions, assumptions about gas distribution
+  - Assumptions about (unresolved) PSCs have to be made
+
+- Limits on gamma-ray emisison of dSphs
+  - dependence on diffuse model ignored
+  - forground source contamination has to be fixed by hand
+
+
+---
+
+class: center, middle
+
+# Machine learning techniques enable analyses without* compromises
+
+## 1) Variational inferece
+
+## 2) Likelihood-free inference
+
+.footnote[*with much less]
+
+---
+
+class: middle
+
+# 1) Variational methods
+
+---
+
+# Variational Bayesian methods
+
+## Turning a sampling into an optimization problem
+
+- Goal: Find some function such that $Q(\theta) \approx P(\theta|x)$ by minimizing their difference (as measured by some _statistical divergence_)
+
+.center[![](https://4.bp.blogspot.com/-OCU72-Cp5lg/V6fxbBAV4oI/AAAAAAAAFE4/BMcR5OYwZqwARnqFnm3I9I_S46O-IH-uQCLcB/s1600/Untitled%2Bpresentation%2B%25282%2529.png)]
+
+- Very active field in ML community, with rich range of new methods and ideas
+- Excellent for, e.g., massive high-dimensional optimization tasks, time expensive simulators, complex observations, data driven models
+
+.footnote[See Carleo, Giuseppe et al., 2019. “Machine Learning and the Physical Sciences.” http://arxiv.org/abs/1903.10563; Excellent overview: Zhang, Cheng et al. 2017. “Advances in Variational Inference.” http://arxiv.org/abs/1711.05597; also Cranmer, Kyle, Johann Brehmer, and Gilles Louppe. 2019. “The Frontier of Simulation-Based Inference.” http://arxiv.org/abs/1911.01429; Cranmer, Kyle, Juan Pavez, and Gilles Louppe. 2015. “Approximating Likelihood Ratios with Calibrated Discriminative Classifiers.” http://arxiv.org/abs/1506.02169]
+
+---
+
+# The distance between distributions
+
+The **Kullback-Leibler divergence** is a measure for the similarity of probability distribution functions
+
+$$
+D_{\rm KL}(P||Q)  = \int p(x) \ln \left(\frac{p(x)}{q(x)}\right)dx
+$$
+
+
+## Statistical divergence, not metric!
+
+- Nonnegative: $D\_{\rm KL}(P||Q) \geq 0$
+- $D_{\rm KL}(P||Q) = 0 \quad \Leftrightarrow \quad P = Q$
+- Not symmetric: $D\_{\rm KL}(P||Q) \neq D\_{\rm KL}(Q||P) $
+
+
+## Variational approximation
+
+- Obtain $q\_\phi(x) \approx p(x)$ by minimizing $D\_{\rm KL}(P||Q\_\phi)$ w.r.t. $\phi$.
+- Turns out **this is often much easier** than directly sampling $p(x)$.
+
+---
+
+# Failure modes of the KL divergence
+
+.center[What happens when approximating, say, a bi-modal function with a single mode?]
+
+.grid[
+.kol-2-5[
+## Reverse KL divergence
+
+- "mode seeking"
+- good when aim is **good fit** to data
+
+## Forward KL divergence
+
+- "mass covering"
+- good when aim is **conservative parameter constraints**
+]
+.kol-3-5[
+.width-100[![](http://timvieira.github.io/blog/images/KL-inclusive-exclusive.png)]
+]
+]
+
+.footnote[Image credit: John Winn.
+
+Nomenclature adopted from Ambrogioni, Luca et al. 2018. “Forward Amortized Inference for Likelihood-Free Variational Marginalization.” arXiv [stat.ML]. arXiv. http://arxiv.org/abs/1805.11542]
+
+---
+
+exclude: true
+
+# Reverse KL divergence
+
+Goal: Find $q_\phi(z|x_0)$ for some observation $x_0$ by minimize the KL divergence at $x=x_0$
+
+$$
+D\_{\rm KL}(q||p) = \int q\_\phi(z|x\_0) \ln \left(\frac{q\_\phi(z|x\_0)}{p\_\theta(z|x\_0)}\right) dz
+= \mathbb{E}\_{z \sim q\_\phi(z|x\_0)} \left[\ln\frac{q\_\phi(z|x\_0)}{p\_\theta(z|x\_0)}\right]
+$$
+
+$$
+= \mathbb{E}\_{z \sim q\_\phi(z|x\_0)} \left[\ln\frac{q\_\phi(z|x\_0)p\_\theta(x\_0)}{p\_\theta(x\_0,z)}\right]
+= 
+\underbrace{\mathbb{E}\_{z \sim q\_\phi(z|x\_0)} \left[\ln\frac{q\_\phi(z|x\_0)}{p\_\theta(x\_0,z)}\right]}\_{\rm \equiv-ELBO} + \ln p\_\theta(x_0)
+$$
+
+Approach: maximize **Evidence Lower Bound (ELBO)**
+
+$$
+\text{ELBO} \equiv \underbrace{\mathbb{E}\_{z \sim q\_\phi(z|x\_0)} \left[\ln p\_\theta(x\_0,z)\right]}\_{\rm "Negative\; energy"} - \underbrace{\mathbb{E}\_{z \sim q\_\phi(z|x\_0)} \left[\ln q\_\phi(z|x\_0)\right]}\_{\rm Entropy}
+$$
+
+ELBO maximization w.r.t. model parameters $\theta$ and variational parameters $\phi$ leads to
+- Variational posterior $q\_\phi(z|x_0)$ for data $x_0$
+- Large model evidence $p\_\theta(x_0)$
+
+.footnote[See e.g. Hoffman et al. 2016, “ELBO Surgery: Yet Another Way to Carve up the Variational Evidence Lower Bound.” http://approximateinference.org/accepted/HoffmanJohnson2016.pdf]
+
+---
+
+# Reverse KL divergence
+
+Goal: Find $q_\phi(z|x_0)$ for some observation $x_0$ by minimize the KL divergence at $x=x_0$
+
+One can show that minimizing KL divergence is equivalent to maximizing **Evidence Lower Bound (ELBO)**
+
+$$
+\text{ELBO} \equiv \underbrace{\mathbb{E}\_{z \sim q\_\phi(z|x\_0)} \left[\ln p\_\theta(x\_0,z)\right]}\_{\rm "Negative\; energy"} - \underbrace{\mathbb{E}\_{z \sim q\_\phi(z|x\_0)} \left[\ln q\_\phi(z|x\_0)\right]}\_{\rm Entropy}
+$$
+
+ELBO maximization w.r.t. model parameters $\theta$ and variational parameters $\phi$ leads to
+- Variational posterior $q\_\phi(z|x_0)$ for data $x_0$
+- Large model evidence $p\_\theta(x_0)$
+
+.footnote[See e.g. Hoffman et al. 2016, “ELBO Surgery: Yet Another Way to Carve up the Variational Evidence Lower Bound.” http://approximateinference.org/accepted/HoffmanJohnson2016.pdf]
+
+
+
+---
+
+# First attempt: SkyFACT
+
+.center[Introduction of thousands of pixel-correction parameters for all model components]
+![](figures/Fermi diff comp.png)
+
+## Method
+- Simple MAP (Maximum a-posteriori) estimation:
+  $q(\theta) = \delta(\theta - \theta^\ast(x))$
+- **End-to-end differentiablilty** of model to enable optimization of thousands of parameters
+- Hypothesis testing based on simple profile likelihood ratios:
+$TS(\theta) = -2\ln \frac{\mathcal{L}(\theta)}{\mathcal{L}(\theta^\ast)}$
+- Most important ingredient: Sweat, more sweat, and hope
+
+.footnote[Bartels+ 2018, Storm+ 2017]
+
+---
+
+# The reward: A model that fits the data
+
+.center[Residuals with increasing number of DOFs]
+.center[.width-85[![](figures/skyfact residuals.png)]]
+
+.footnote[Storm+ 2017]
+
+---
+
+# Problems with this approach
+
+- No uncertainties
+- Hyper-parameters (smoothness of pixel corrections) had to be fixed by hand
+- Painful to implement (we coded up all gradients by hand)
+- Sometimes hard to make fits converge with L-BFGS-B (non-convex problem)
+- Shakey statistical method to obtain bounds
+
+
+.center[.red[Our intent was good, our implemtation was naive (in retrospect).]]
+
+This can be done much better with ML tools.
+
+---
+
+# SDSSJ0252+0039 - strong lensing image
+
+.red[.center[We fit full variational posteriors to all parameters]]
+
+Random draws from the posterior predictive distribution, $x \sim \int d\theta\, p(x|\theta)q(\theta|x_0)$
+
+.width-90[![](figures/GPS/fit.gif)]
+
+- We quantify uncertainties for 1e4 parameters without significant overhead
+  - little extra computing time w.r.t. simple MAP estimation
+  - **no extra coding** when using right frameworks (e.g. pytorch, numpyro, etc)
+
+.footnote[Preliminary - Karchev+ 2020 in preparation]
+
+
+---
+
+# Gaussian Processes Source
+
+- clean treament of short and long-range correlations (not just nearest neighbours)
+- correlations described by some **simple** kernel function $k_0(\cdot)$ in source plane
+
+.center[.width-60[![](https://blog.dominodatalab.com/wp-content/uploads/2017/03/output_75_0-1.png)]]
+
+- however: horribly complicated correlation structure in image plane
+- $\Rightarrow$ **standard approaches / existing libraries did not work well enough for our purpose**
+  - log-det computations are extremely slow
+  - decoupling of GP optimization and lensing optimization extremely slow
+
+.footnote[Image source: https://blog.dominodatalab.com/wp-content/uploads/2017/03/output_75_0-1.png]
+
+---
+
+# On the covariance matrix
+
+## Windowed covariance matrix
+$$
+K_{ij}  = k(\mathbf{\vec{p}}_i - \mathbf{\vec{p}}_j)
+= \int \text{d}\vec{x}_1 \text{d}\vec{x}_2
+\ f_i(\mathbf{\vec{p}}_i - \vec{x}_1)
+\ k_0(\vec{x}_1 - \vec{x}_2)
+\ f_j(\mathbf{\vec{p}}_j - \vec{x}_2)
+$$
+
+.grid[
+.kol-2-5[
+Trick is to find some approximate quadratic decomposition
+$$
+K \approx T T^T
+$$
+
+Then we can write
+
+$$
+\mu\_i = \sum\_j T_{ij} y_j
+$$
+where
+$$
+y_j \sim \mathcal{N}(0, 1)
+$$
+]
+.kol-3-5[
+.width-100[![](figures/GP_source.png)]
+]
+]
+
+
+---
+
+# SDSSJ0252+0039 - source reconstruction
+
+.red[.center[We fit full variational posteriors to all parameters]]
+
+Random draws from the posterior predictive distribution, $x \sim \int d\theta\, p(x|\theta)q(\theta|x_0)$
+
+.width-100[![](figures/GPS/source.gif)]
+
+- Difference between small-scale and large-scale variations in source model clearly visible
+- Source reconstruction agrees well with simple Voronoi diagram approach
+
+.footnote[Preliminary - Karchev+ 2020 in preparation]
+
+---
+
+# What can this do for CTA?
+
+- Full Bayesian analysis of diffuse gamma-ray emission taking into account realistic gas, CR distribution and any other instrumental uncertainties
+- Hyper parameter optimization for systematic uncertainties
+  - proton rejection factor
+  - gamma-ray acceptance accross the FOV
+  - point spread function
+  - contamination with night sky emission
+- The most robust constraints on DM annihilation in the inner Galaxy,
+obtained by ruthlessly marginalizing over all uncertainties.
+- Less frustrated PhD students (no endless fiddeling with Minuit, Multinest, ...)
+
+## Challenges
+
+- Analysis needs to be implemented in auto-diff framework (like `pytorch`, `JAX`, etc)
+- Need probabilistic programming language wrapper (like `pyro`/`numpyro`)
+
+---
+
+# Multi ROI analysis
+
+.grid[
+.kol-1-2[
+## Strategy
+- Combined likelihood analysis of all relevant observations at once
+- Enables self-calibration of CR backgrounds, aspects of ISRF
+- Enables consistent modeling of e.g. night sky starlight contamination accross many FoVs, etc
+]
+.kol-1-2[
+.width-100[.center[![](figures/cta pointing strategy.png)]]
+]
+]
+
+.footnote[CTA collaboration 2020]
+
+---
+
+class: middle
+
+# 2) Likelihood-free inference
+
+"Likelihood-free"
+- We know how to sample $x\sim P(x|z)$
+- However, given some observation $x$, we cannot evaluate the density $P(x|z)$
+
+We cannot use variational inference in this case.
+
+---
+
+# Why likelihood-free?
+
+We typically want **marginal posteriors** for $\theta$, marginalized over
+(potentially thousands or millions of) nuisance parameters $\eta$.  If we knew
+the **marginal likelihood** 
+$$
+P(x|\theta)\equiv \int d\eta P(x|\theta, \eta)P(\eta)\;,
+$$
+
+this would just boil down to applying Bayes' theorem,
+
+$$
+P(\theta|x) = \frac{P(x|\theta)P(\theta)}{P(x)}\;.
+$$
+
+However, in many interesting cases, calcuating this marginal likelihood is intractable.
+
+
+.center[**Almost always, we are practically in a likelihood-free setting.**]
+
+
+---
+
+# Approach: Likelihood-to-evidence ratio
+
+Assume that the goal is to distriminate parameters $z$ matching an observation $x$ from parameters that do not match an observation. We want to distriminate
+- $H_0$: $x, z \sim  p(x, z)$
+- $H_1$: $x, z \sim  p(x)p(z)$
+
+We train a binary classifier to discriminate between $(x, z)$ pairs drawn from the joint distribution $p(x, z)$ and the marginal distributions $p(x)p(z)$.  This loss function is given by
+$$\ell = \int dx dz \left(
+p(x, z)\ln d(x, z)
++p(x)p(z)\ln [1-d(x, z)]
+\right)$$
+
+One can then show that the trained neural network $d(x, z) \in [0, 1]$ satisfies
+
+$$r(x,z)\equiv\frac{d(x, z)}{1-d(x, z)} = \frac{p(x|z)}{p(x)}$$
+
+which is the likelihood-to-evidence ratio.  Training only requires simulation/samples, and side-steps any likelihood marginalization.
+
+.footnote[e.g. Hermans, Louppe, 2019]
+
+---
+
+# Example network
+
+.center[.width-80[![](figures/gw_network.png)]]
+
+.center[(here for GW parameter regression)]
+
+---
+
+# Ex: Stellar streams WDM estimation
+
+.center[.width-80[![](figures/streams posteriors.png)]]
+
+.footnote[Preliminary, Hermans+ 2020 in preparation]
+
+---
+
+# Strong lensing image analysis
+
+We used variational inference fit from above to generate training data for a neural network that can recognize individual subhalos.
+
+.center[.width-100[![](figures/lensing 2dim posteriors.png)]]
+
+The shown posteriors are effectively marginalized over thousands of source and
+lens parameters.  Those marginal posteriors can be evaluated in seconds once
+the network is trained (and training takes maybe 20 min).
+
+
+.center[**Simulator efficency!**]
+
+.footnote[Preliminary, Coogan+ 2020 in preparation]
+
+---
+
+# What can this do for CTA?
+
+## Anything with point sources
+- Measuring point source population parameters directly from data
+- Constraining dark matter annihilation in subhalos
+- Can be used to directly detect point sources (e.g. using U-Net)
+- Probabilistic point source classification
+
+## Furthermore
+
+- Directly fitting CR propagation codes to gamma-ray data (simulator efficent!)
+- Less frustrated PhD students (no Bayesian graphical networks, Multinest
+fiddeling, guessing of point source detection thresholds, etc)
+
+## Challenges
+- Good: Almost zero threshold to get going with existing tools.
+- Caveat: Perfecting method requires some creativity with training neural networks.
+
+---
+
+# Full forward model for data is possible
+
+.center[Unification of all analysis tasks, from calibration over diffuse emission modeling, point source detection and population studies, in one unified framework, which allows to answer any statistical question in a self-consistent painless way.]
+.center[.width-60[![](figures/fermi_diagram.png)]]
+
+---
+
+class: summary
+
+# Summary
+
+- If done right, modern machine learning techniques allow to solve analysis
+problems that would be traditionally impossible to solve.
+  - Reduces massively the overhead in testing compromises, bracketing uncertainties
+  - Speeds up analysis by orders of magnitude
+  - Allows to answer questions that would be impossible to ask
+- Variational inference enables simultaneous reconstruction of diffuse emission
+and hyper-parameter optimization.
+  - Uncertainties are retained
+  - Prior information (about gas models etc) can be included
+  - Very fast (can run on GPU, uncertainties come "for free")
+  - Possible to have many components, combine multiple observations in one analysis, etc
+  - Enables self-calibration of ISRF
+- Likelihood-free inference
+  - Painless point source detection, classification, population parameter studies, etc
+
+
+.center[The techniques are all relatively new.  Not difficult, but requires time to
+get used to.]
+.center[**Let's continue to talk if this sounds interesting to you!**]
+
+
+
+    </textarea>
+
+    <script src="./assets/remark-latest.min.js"></script>
+    <script src="./assets/katex.min.js"></script>
+    <script src="./assets/auto-render.min.js"></script>
+    <script src=""></script>
+
+    <script type="text/javascript">
+      var options = {ratio:'14:9'};
+      var renderMath = function() {
+        renderMathInElement(document.body);
+        // or if you want to use $...$ for math,
+        renderMathInElement(document.body, {delimiters: [ // mind the order of delimiters(!?)
+            {left: "$$", right: "$$", display: true},
+            {left: "$", right: "$", display: false},
+            {left: "\\[", right: "\\]", display: true},
+            {left: "\\(", right: "\\)", display: false},
+        ]});
+      }
+      remark.macros.scale = function (percentage) {
+        var url = this;
+        return '<img src="' + url + '" style="width: ' + percentage + '" />';
+      };
+      var slideshow = remark.create(options, renderMath);
+    </script>
+
+    <script src="./assets/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true, closeCssStyles:true});</script>
+  </body>
+</html>
